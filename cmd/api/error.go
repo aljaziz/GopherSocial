@@ -34,3 +34,9 @@ func (app *application) unauthorizedResponse(w http.ResponseWriter, r *http.Requ
 
 	errorJSON(w, http.StatusUnauthorized, "Unauthorized")
 }
+
+func (app *application) conflictResponse(w http.ResponseWriter, r *http.Request, err error) {
+	log.Printf("Conflict response: %s path: %s error: %s", r.Method, r.URL.Path, err)
+
+	errorJSON(w, http.StatusConflict, err.Error())
+}
