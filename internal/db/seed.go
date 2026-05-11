@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+
 	"github.com/aljaziz/GopherSocial/internal/store"
 )
 
