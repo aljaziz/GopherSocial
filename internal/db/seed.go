@@ -77,8 +77,9 @@ func Seed(store store.Storage, db *sql.DB) {
 	ctx := context.Background()
 
 	users := generateUsers(100)
+	tx, _ := db.BeginTx(ctx, nil)
 	for _, user := range users {
-		if err := store.Users.Create(ctx, user); err != nil {
+		if err := store.Users.Create(ctx, tx, user); err != nil {
 			log.Fatalf("Failed to create user: %v", err)
 			return
 		}
@@ -110,7 +111,6 @@ func generateUsers(count int) []*store.User {
 		users[i] = &store.User{
 			Username: usernames[i%len(usernames)] + fmt.Sprintf("%d", i),
 			Email:    usernames[i%len(usernames)] + fmt.Sprintf("%d", i) + "@exampler.com",
-			Password: "123123",
 		}
 	}
 	return users
