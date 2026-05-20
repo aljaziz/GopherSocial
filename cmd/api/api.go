@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aljaziz/GopherSocial/docs"
+	"github.com/aljaziz/GopherSocial/internal/mailer"
 	"github.com/aljaziz/GopherSocial/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -17,19 +18,31 @@ type application struct {
 	config config
 	store  store.Storage
 	logger *zap.SugaredLogger
+	mailer mailer.Client
 }
 
 type config struct {
-	addr   string
-	db     dbConfig
-	env    string
-	apiURL string
-	mail   mailConfig
+	addr        string
+	db          dbConfig
+	env         string
+	apiURL      string
+	mail        mailConfig
+	frontendURL string
 }
 
 type mailConfig struct {
 	fromEmail string
 	exp       time.Duration
+	sendGrid  sendGridConfig
+	mailTrap  mailTrapConfig
+}
+
+type mailTrapConfig struct {
+	apiKey string
+}
+
+type sendGridConfig struct {
+	apiKey string
 }
 
 type dbConfig struct {
@@ -80,7 +93,7 @@ func (app *application) mount() http.Handler {
 
 		r.Route("/authentication", func(r chi.Router) {
 			r.Post("/user", app.registerUserHandler)
-			r.Post("/token", app.createTokenHandler)
+			// r.Post("/token", app.createTokenHandler)
 		})
 
 	})

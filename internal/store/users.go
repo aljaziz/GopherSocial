@@ -6,9 +6,8 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
-	"time"
-
 	"golang.org/x/crypto/bcrypt"
+	"time"
 )
 
 var (
@@ -130,6 +129,32 @@ func (s *UserStore) Activate(ctx context.Context, token string) error {
 	})
 }
 
+func (s *UserStore) Delete(ctx context.Context, userID int64) error {
+	return withTx(s.db, ctx, func(tx *sql.Tx) error {
+		if err := s.delete(ctx, tx, userID); err != nil {
+			return err
+		}
+
+		if err := s.deleteUserInvitation(ctx, tx, userID); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func createUserInvitation(ctx context.Context, tx *sql.Tx, token string, exp time.Duration, userID int64) error {
+	query := `INSERT INTO user_invitations (token, user_id, expiry) VALUES ($1, $2, $3)`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	_, err := tx.ExecContext(ctx, query, token, userID, time.Now().Add(exp))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *UserStore) getUserFromInvitation(ctx context.Context, tx *sql.Tx, token string) (*User, error) {
 	query := `SELECT u.id, u.username, u.email, u.created_at, u.is_active 
 	FROM users u
@@ -186,13 +211,13 @@ func (s *UserStore) deleteUserInvitation(ctx context.Context, tx *sql.Tx, userID
 	return nil
 }
 
-func createUserInvitation(ctx context.Context, tx *sql.Tx, token string, exp time.Duration, userID int64) error {
-	query := `INSERT INTO user_invitations (token, user_id, expiry) VALUES ($1, $2, $3)`
+func (s *UserStore) delete(ctx context.Context, tx *sql.Tx, userID int64) error {
+	query := `DELETE FROM users WHERE id = $1`
 
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	_, err := tx.ExecContext(ctx, query, token, userID, time.Now().Add(exp))
+	_, err := tx.ExecContext(ctx, query, userID)
 	if err != nil {
 		return err
 	}

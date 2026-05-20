@@ -1,8 +1,11 @@
 package main
 
 import (
+	"time"
+
 	"github.com/aljaziz/GopherSocial/internal/db"
 	"github.com/aljaziz/GopherSocial/internal/env"
+	"github.com/aljaziz/GopherSocial/internal/mailer"
 	"github.com/aljaziz/GopherSocial/internal/store"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -31,14 +34,25 @@ const version = "1.0.0"
 func main() {
 	godotenv.Load()
 	cfg := config{addr: env.GetString("ADDR", ":8080"),
-		apiURL: env.GetString("EXTERNAL_URL", "localhost:8080"),
+		apiURL:      env.GetString("EXTERNAL_URL", "localhost:8080"),
+		frontendURL: env.GetString("FRONTEND_URL", "http://localhost:5173"),
 		db: dbConfig{
-			addr:         env.GetString("DB_ADDR", "postgres://admin:adminpassword@localhost/gopherSocial?sslmode=disable"),
+			addr:         env.GetString("DB_ADDR", ""),
 			maxOpenConns: env.GetInt("DB_MAX_OPEN_CONNS", 30),
 			maxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 30),
 			maxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
 		},
 		env: env.GetString("ENV", "development"),
+		mail: mailConfig{
+			exp:       time.Hour * 24 * 3, // 3 days
+			fromEmail: env.GetString("FROM_EMAIL", ""),
+			sendGrid: sendGridConfig{
+				apiKey: env.GetString("SENDGRID_API_KEY", ""),
+			},
+			mailTrap: mailTrapConfig{
+				apiKey: env.GetString("MAILTRAP_API_KEY", ""),
+			},
+		},
 	}
 
 	// Logger
@@ -58,11 +72,21 @@ func main() {
 	defer db.Close()
 	logger.Info("Database connected")
 
+	// Mailer
+	// mailer := mailer.NewSendgrid(cfg.mail.sendGrid.apiKey, cfg.mail.fromEmail)
+	mailtrap, err := mailer.NewMailTrapClient(cfg.mail.mailTrap.apiKey, cfg.mail.fromEmail)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	// Store
 	store := store.NewStorage(db)
+
+	// Application
 	app := &application{
 		config: cfg,
 		store:  store,
 		logger: logger,
+		mailer: mailtrap,
 	}
 
 	mux := app.mount()

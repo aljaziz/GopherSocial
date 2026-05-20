@@ -3,8 +3,10 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 
+	"github.com/aljaziz/GopherSocial/internal/mailer"
 	"github.com/aljaziz/GopherSocial/internal/store"
 	"github.com/google/uuid"
 )
@@ -75,9 +77,32 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		User:  user,
 		Token: plainToken,
 	}
+	activationURL := fmt.Sprintf("%s/confirm/%s", app.config.frontendURL, plainToken)
+
+	isProdEnv := app.config.env == "production"
+	vars := struct {
+		Username      string
+		ActivationURL string
+	}{
+		Username:      user.Username,
+		ActivationURL: activationURL,
+	}
+	//send activation mail
+	status, err := app.mailer.Send(mailer.UserWelcomeTemplate, user.Username, user.Email, vars, !isProdEnv)
+	if err != nil {
+		app.logger.Errorw("Error sending welcome email", "error", err)
+
+		//rollback user creation if email sending fails (SAGA pattern)
+		if err := app.store.Users.Delete(ctx, user.ID); err != nil {
+			app.logger.Errorw("Error deleting user", "error", err)
+		}
+		app.internalServerErrorResponse(w, r, err)
+		return
+	}
+
+	app.logger.Infow("Email sent", "status code", status)
 
 	if err := jsonResponse(w, http.StatusCreated, userWithToken); err != nil {
 		app.internalServerErrorResponse(w, r, err)
 	}
 }
-
