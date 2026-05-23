@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/aljaziz/GopherSocial/internal/auth"
 	"github.com/aljaziz/GopherSocial/internal/db"
 	"github.com/aljaziz/GopherSocial/internal/env"
 	"github.com/aljaziz/GopherSocial/internal/mailer"
@@ -92,12 +93,20 @@ func main() {
 	// Store
 	store := store.NewStorage(db)
 
+	// jwt authenticator
+	jwtAuthenticator := auth.NewJWTAuthenticator(
+		cfg.auth.token.secret,
+		cfg.auth.token.iss,
+		cfg.auth.token.iss,
+	)
+
 	// Application
 	app := &application{
-		config: cfg,
-		store:  store,
-		logger: logger,
-		mailer: mailtrap,
+		config:        cfg,
+		store:         store,
+		logger:        logger,
+		mailer:        mailtrap,
+		authenticator: jwtAuthenticator,
 	}
 
 	mux := app.mount()

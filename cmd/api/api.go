@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aljaziz/GopherSocial/docs"
+	"github.com/aljaziz/GopherSocial/internal/auth"
 	"github.com/aljaziz/GopherSocial/internal/mailer"
 	"github.com/aljaziz/GopherSocial/internal/store"
 	"github.com/go-chi/chi/v5"
@@ -15,10 +16,11 @@ import (
 )
 
 type application struct {
-	config config
-	store  store.Storage
-	logger *zap.SugaredLogger
-	mailer mailer.Client
+	config        config
+	store         store.Storage
+	logger        *zap.SugaredLogger
+	mailer        mailer.Client
+	authenticator auth.Authenticator
 }
 
 type config struct {
@@ -110,7 +112,7 @@ func (app *application) mount() http.Handler {
 
 		r.Route("/authentication", func(r chi.Router) {
 			r.Post("/user", app.registerUserHandler)
-			// r.Post("/token", app.createTokenHandler)
+			r.Post("/token", app.createTokenHandler)
 		})
 
 	})
