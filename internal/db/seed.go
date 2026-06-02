@@ -78,17 +78,21 @@ func Seed(store store.Storage, db *sql.DB) {
 
 	users := generateUsers(100)
 	tx, _ := db.BeginTx(ctx, nil)
+
 	for _, user := range users {
 		if err := store.Users.Create(ctx, tx, user); err != nil {
-			log.Fatalf("Failed to create user: %v", err)
+			_ = tx.Rollback()
+			log.Println("Error creating user:", err)
 			return
 		}
 	}
 
+	tx.Commit()
+
 	posts := generatePosts(200, users)
 	for _, post := range posts {
 		if err := store.Posts.Create(ctx, post); err != nil {
-			log.Fatalf("Failed to create post: %v", err)
+			log.Println("Error creating post:", err)
 			return
 		}
 	}
@@ -96,52 +100,59 @@ func Seed(store store.Storage, db *sql.DB) {
 	comments := generateComments(500, users, posts)
 	for _, comment := range comments {
 		if err := store.Comments.Create(ctx, comment); err != nil {
-			log.Fatalf("Failed to create comment: %v", err)
+			log.Println("Error creating comment:", err)
 			return
 		}
 	}
 
-	log.Println("Database seeding completed successfully!")
+	log.Println("Seeding complete")
 }
 
-func generateUsers(count int) []*store.User {
-	users := make([]*store.User, count)
+func generateUsers(num int) []*store.User {
+	users := make([]*store.User, num)
 
-	for i := 0; i < count; i++ {
-		users[i] = &store.User{
+	for i := 0; i < num; i++ {
+		user := &store.User{
 			Username: usernames[i%len(usernames)] + fmt.Sprintf("%d", i),
-			Email:    usernames[i%len(usernames)] + fmt.Sprintf("%d", i) + "@exampler.com",
+			Email:    usernames[i%len(usernames)] + fmt.Sprintf("%d", i) + "@example.com",
+			Role: store.Role{
+				Name: "user",
+			},
 		}
+		if err := user.Password.Set("password"); err != nil {
+			log.Fatal("Error hashing password:", err)
+		}
+		users[i] = user
 	}
+
 	return users
 }
 
-func generatePosts(count int, users []*store.User) []*store.Post {
-	posts := make([]*store.Post, count)
-
-	for i := 0; i < count; i++ {
+func generatePosts(num int, users []*store.User) []*store.Post {
+	posts := make([]*store.Post, num)
+	for i := 0; i < num; i++ {
 		user := users[rand.Intn(len(users))]
 
 		posts[i] = &store.Post{
 			UserID:  user.ID,
 			Title:   titles[rand.Intn(len(titles))],
-			Content: contents[rand.Intn(len(contents))],
+			Content: titles[rand.Intn(len(contents))],
 			Tags: []string{
 				tags[rand.Intn(len(tags))],
 				tags[rand.Intn(len(tags))],
 			},
 		}
 	}
+
 	return posts
 }
 
-func generateComments(count int, users []*store.User, posts []*store.Post) []*store.Comment {
-	cms := make([]*store.Comment, count)
-
-	for i := 0; i < count; i++ {
+func generateComments(num int, users []*store.User, posts []*store.Post) []*store.Comment {
+	cms := make([]*store.Comment, num)
+	for i := 0; i < num; i++ {
 		cms[i] = &store.Comment{
-			UserID:  users[rand.Intn(len(users))].ID,
 			PostID:  posts[rand.Intn(len(posts))].ID,
+			UserID:  users[rand.Intn(len(users))].ID,
 			Content: comments[rand.Intn(len(comments))],
 		}
 	}
