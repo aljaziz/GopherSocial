@@ -6,7 +6,6 @@ import (
 	"github.com/aljaziz/GopherSocial/internal/auth"
 	"github.com/aljaziz/GopherSocial/internal/db"
 	"github.com/aljaziz/GopherSocial/internal/env"
-	"github.com/aljaziz/GopherSocial/internal/mailer"
 	"github.com/aljaziz/GopherSocial/internal/store"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -86,7 +85,7 @@ func main() {
 
 	// Mailer
 	// mailer := mailer.NewSendgrid(cfg.mail.sendGrid.apiKey, cfg.mail.fromEmail)
-	mailtrap, err := mailer.NewMailTrapClient(cfg.mail.mailTrap.apiKey, cfg.mail.fromEmail)
+	// mailtrap, err := mailer.NewMailTrapClient(cfg.mail.mailTrap.apiKey, cfg.mail.fromEmail)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -102,10 +101,10 @@ func main() {
 
 	// Application
 	app := &application{
-		config:        cfg,
-		store:         store,
-		logger:        logger,
-		mailer:        mailtrap,
+		config: cfg,
+		store:  store,
+		logger: logger,
+		// mailer:        mailtrap,
 		authenticator: jwtAuthenticator,
 	}
 
