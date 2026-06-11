@@ -35,11 +35,11 @@ func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	user, err := app.store.Users.GetByID(ctx, userID)
+	user, err := app.getUser(ctx, userID)
 	if err != nil {
 		switch err {
 		case store.ErrNotFound:
-			app.badRequestResponse(w, r, err)
+			app.notFoundResponse(w, r, err)
 			return
 		default:
 			app.internalServerErrorResponse(w, r, err)
