@@ -6,6 +6,7 @@ import (
 	"github.com/aljaziz/GopherSocial/internal/auth"
 	"github.com/aljaziz/GopherSocial/internal/db"
 	"github.com/aljaziz/GopherSocial/internal/env"
+	"github.com/aljaziz/GopherSocial/internal/ratelimiter"
 	"github.com/aljaziz/GopherSocial/internal/store"
 	"github.com/aljaziz/GopherSocial/internal/store/cache"
 	"github.com/go-redis/redis/v8"
@@ -72,6 +73,11 @@ func main() {
 				iss:    "gophersocial",
 			},
 		},
+		rateLimiter: ratelimiter.Config{
+			RequestsPerTimeFrame: env.GetInt("RATELIMITER_REQUESTS_COUNT", 20),
+			TimeFrame:            time.Second * 5,
+			Enabled:              env.GetBool("RATE_LIMITER_ENABLED", true),
+		},
 	}
 
 	// Logger
@@ -100,6 +106,12 @@ func main() {
 		defer rdb.Close()
 	}
 
+	// Rate limiter
+	rateLimiter := ratelimiter.NewFixedWindowLimiter(
+		cfg.rateLimiter.RequestsPerTimeFrame,
+		cfg.rateLimiter.TimeFrame,
+	)
+
 	// Mailer
 	// mailer := mailer.NewSendgrid(cfg.mail.sendGrid.apiKey, cfg.mail.fromEmail)
 	// mailtrap, err := mailer.NewMailTrapClient(cfg.mail.mailTrap.apiKey, cfg.mail.fromEmail)
@@ -125,6 +137,7 @@ func main() {
 		logger:     logger,
 		// mailer:        mailtrap,
 		authenticator: jwtAuthenticator,
+		rateLimiter:   rateLimiter,
 	}
 
 	mux := app.mount()
