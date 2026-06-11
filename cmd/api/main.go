@@ -7,6 +7,8 @@ import (
 	"github.com/aljaziz/GopherSocial/internal/db"
 	"github.com/aljaziz/GopherSocial/internal/env"
 	"github.com/aljaziz/GopherSocial/internal/store"
+	"github.com/aljaziz/GopherSocial/internal/store/cache"
+	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 )
@@ -42,6 +44,12 @@ func main() {
 			maxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 30),
 			maxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
 		},
+		redisCfg: redisConfig{
+			addr:     env.GetString("REDIS_ADDR", "localhost:6379"),
+			password: env.GetString("REDIS_PW", ""),
+			db:       env.GetInt("REDIS_DB", 0),
+			enabled:  env.GetBool("REDIS_ENABLED", false),
+		},
 		env: env.GetString("ENV", "development"),
 		mail: mailConfig{
 			exp:       time.Hour * 24 * 3, // 3 days
@@ -70,6 +78,7 @@ func main() {
 	logger := zap.Must(zap.NewProduction()).Sugar()
 	defer logger.Sync()
 
+	// Main Database
 	db, err := db.New(
 		cfg.db.addr,
 		cfg.db.maxOpenConns,
@@ -83,6 +92,14 @@ func main() {
 	defer db.Close()
 	logger.Info("Database connected")
 
+	// Cache Store
+	var rdb *redis.Client
+	if cfg.redisCfg.enabled {
+		rdb = cache.NewRedisClient(cfg.redisCfg.addr, cfg.redisCfg.password, cfg.redisCfg.db)
+		logger.Info("Redis cache connection established")
+		defer rdb.Close()
+	}
+
 	// Mailer
 	// mailer := mailer.NewSendgrid(cfg.mail.sendGrid.apiKey, cfg.mail.fromEmail)
 	// mailtrap, err := mailer.NewMailTrapClient(cfg.mail.mailTrap.apiKey, cfg.mail.fromEmail)
@@ -91,6 +108,7 @@ func main() {
 	}
 	// Store
 	store := store.NewStorage(db)
+	cacheStore := cache.NewRedisStorage(rdb)
 
 	// jwt authenticator
 	jwtAuthenticator := auth.NewJWTAuthenticator(
@@ -101,9 +119,10 @@ func main() {
 
 	// Application
 	app := &application{
-		config: cfg,
-		store:  store,
-		logger: logger,
+		config:     cfg,
+		store:      store,
+		cacheStore: cacheStore,
+		logger:     logger,
 		// mailer:        mailtrap,
 		authenticator: jwtAuthenticator,
 	}
