@@ -8,6 +8,7 @@ import (
 	"github.com/aljaziz/GopherSocial/docs"
 	"github.com/aljaziz/GopherSocial/internal/auth"
 	"github.com/aljaziz/GopherSocial/internal/mailer"
+	"github.com/aljaziz/GopherSocial/internal/ratelimiter"
 	"github.com/aljaziz/GopherSocial/internal/store"
 	"github.com/aljaziz/GopherSocial/internal/store/cache"
 	"github.com/go-chi/chi/v5"
@@ -25,6 +26,7 @@ type application struct {
 	logger        *zap.SugaredLogger
 	mailer        mailer.Client
 	authenticator auth.Authenticator
+	rateLimiter   ratelimiter.Limiter
 }
 
 type config struct {
@@ -36,6 +38,7 @@ type config struct {
 	frontendURL string
 	auth        authConfig
 	redisCfg    redisConfig
+	rateLimiter ratelimiter.Config
 }
 
 type redisConfig struct {
@@ -91,6 +94,10 @@ func (app *application) mount() http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+
+	if app.config.rateLimiter.Enabled {
+		r.Use(app.RateLimiterMiddleware)
+	}
 
 	// Set a timeout value on the request context (ctx), that will signal
 	// through ctx.Done() that the request has timed out and further
